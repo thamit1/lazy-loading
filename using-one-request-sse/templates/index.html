@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSE Lazy Loading Table</title>
+    <style>
+        table { border-collapse: collapse; width: 60%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        td.loading { color: gray; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<h2>Lazy Loading Table (Single API Call via SSE)</h2>
+
+<table id="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Slow Column</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+console.log("Connecting to SSE stream...");
+
+const evtSource = new EventSource("/stream");
+
+// 1️⃣ FAST rows
+evtSource.addEventListener("fast", (event) => {
+    const rows = JSON.parse(event.data);
+    const tbody = document.querySelector("#data-table tbody");
+    tbody.innerHTML = "";
+
+    rows.forEach(row => {
+        tbody.innerHTML += `
+            <tr>
+                <td>${row.id}</td>
+                <td>${row.name}</td>
+                <td>${row.price}</td>
+                <td id="slow-${row.id}" class="loading">Loading...</td>
+            </tr>`;
+    });
+});
+
+// 2️⃣ SLOW rows
+evtSource.addEventListener("slow", (event) => {
+    const slowRows = JSON.parse(event.data);
+
+    slowRows.forEach(item => {
+        const cell = document.getElementById(`slow-${item.id}`);
+        if (cell) {
+            cell.innerText = item.slow_value;
+            cell.classList.remove("loading");
+        }
+    });
+});
+
+// 3️⃣ DONE event → close connection
+evtSource.addEventListener("done", () => {
+    console.log("Received done event. Closing SSE connection.");
+    evtSource.close();
+});
+</script>
+
+</body>
+</html>

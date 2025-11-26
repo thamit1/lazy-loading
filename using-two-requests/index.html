@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lazy Loading Table</title>
+    <style>
+        table { border-collapse: collapse; width: 60%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        td.loading { color: gray; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<h2>Lazy Loading Table Demo</h2>
+
+<table id="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Slow Column</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+async function loadTable() {
+    const response = await fetch("http://127.0.0.1:8000/rows");
+    const rows = await response.json();
+
+    const tbody = document.querySelector("#data-table tbody");
+
+    rows.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${row.id}</td>
+            <td>${row.name}</td>
+            <td>${row.price}</td>
+            <td id="slow-${row.id}" class="loading">Loading...</td>
+        `;
+        tbody.appendChild(tr);
+
+        // Start polling for slow value
+        pollSlowValue(row.id);
+    });
+}
+
+async function pollSlowValue(id) {
+    const interval = setInterval(async () => {
+        const res = await fetch(`http://127.0.0.1:8000/slow-value/${id}`);
+        const data = await res.json();
+
+        if (data.slow_value !== null) {
+            document.getElementById(`slow-${id}`).innerText = data.slow_value;
+            document.getElementById(`slow-${id}`).classList.remove("loading");
+            clearInterval(interval);
+        }
+    }, 1000);
+}
+
+loadTable();
+</script>
+
+</body>
+</html>
+
