@@ -136,6 +136,12 @@ lazy-loading/
 │   └── templates/
 │       └── index.html       # Client (listens to SSE events)
 │
+├── using-java/              # Java proof-of-concept (Vert.x-based SSE)
+│   └── vertex-sse-lazy-loading/
+│       ├── pom.xml          # Maven project
+│       ├── src/main/java/.../App.java  # Vert.x SSE server
+│       └── src/main/resources/webroot/index.html  # UI served by Vert.x
+│
 └── README.md                # This file
 ```
 
@@ -234,6 +240,53 @@ The page should serve the HTML automatically. If not, ensure `templates/index.ht
 2. The **Slow Column** cells show "Loading..." in gray italic text.
 3. After ~3 seconds, all slow values appear at once, sent via the `slow` event.
 4. The browser console logs confirm the event sequence: "fast event received," "slow event received," "done event received. Closing SSE connection."
+
+---
+
+## Java Proof‑of‑Concept (Vert.x SSE)
+
+This repository also includes a Java proof‑of‑concept that demonstrates the same single‑request SSE pattern implemented with Vert.x. It is located under `using-java/vertex-sse-lazy-loading` and serves a small HTML UI from `src/main/resources/webroot/index.html`.
+
+### Build and Run
+
+Requirements:
+- Java 17 (project configured for Java 17)
+- Maven 3.6+
+
+To run the Java POC:
+
+```bash
+cd using-java/vertex-sse-lazy-loading
+# run tests
+mvn test
+
+# build the shaded jar
+mvn clean package
+
+# run the application (the shade plugin produces a runnable jar)
+java -jar target/vertx-sse-lazy-loading-1.0.0.jar
+```
+
+When the server starts it prints a message like:
+
+```
+HTTP server started on http://localhost:9219
+```
+
+Open your browser at `http://localhost:9219` to view the UI. The Java POC sends SSE `fast`, then `slow`, then `done` events, matching the behavior shown in the Python SSE example but implemented with Vert.x.
+
+### What to Expect
+
+- The UI connects to `/stream` and displays fast columns immediately.
+- After ~3 seconds the server sends slow column values in a `slow` event and then a `done` event; the UI updates and closes the connection.
+- The server serves the UI from `webroot/index.html`, so the client and SSE endpoint are the same origin.
+
+### Notes and Troubleshooting
+
+- If the jar name changes (due to version changes), check `target/` for the shaded artifact and run it with `java -jar <jar-file>`.
+- If port `9219` is in use, edit `App.java` to change the port or stop the conflicting process.
+- Ensure you have Java 17; Maven will compile the project with `--release 17` per the POM.
+- Tests can be run with `mvn test`.
 
 ---
 
