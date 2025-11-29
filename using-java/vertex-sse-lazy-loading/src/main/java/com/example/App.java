@@ -8,6 +8,7 @@ import io.vertx.ext.web.handler.StaticHandler;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.time.Instant;
 
 /**
  * Vert.x SSE lazy-loading microservice
@@ -37,6 +38,9 @@ public class App extends AbstractVerticle {
 
     // SSE endpoint
     router.get("/stream").handler(ctx -> {
+      // Log when request is received
+      System.out.println(Instant.now().toString() + " - /stream request received from " + ctx.request().remoteAddress());
+
       HttpServerResponse resp = ctx.response();
       resp.setChunked(true);
       resp.putHeader("Content-Type", "text/event-stream");
@@ -56,9 +60,11 @@ public class App extends AbstractVerticle {
       // 1) send fast event immediately
       String fastJson = toJson(fastRows);
       writeSseEvent(resp, "fast", fastJson);
+      System.out.println(Instant.now().toString() + " - Sent fast event (fast data)");
 
       // 2) after delay, send slow values
       vertx.setTimer(3000, tid -> {
+        // Simulate slow computation finished
         List<Map<String, Object>> slowRows = fastRows.stream().map(fr -> {
           Map<String, Object> s = new LinkedHashMap<>();
           s.put("id", fr.get("id"));
@@ -66,12 +72,19 @@ public class App extends AbstractVerticle {
           return s;
         }).collect(Collectors.toList());
 
+        System.out.println(Instant.now().toString() + " - Finished slow computation (server-side)");
+
         String slowJson = toJson(slowRows);
         writeSseEvent(resp, "slow", slowJson);
+        System.out.println(Instant.now().toString() + " - Sent slow event (slow data)");
 
         // 3) send done and close shortly after
         writeSseEvent(resp, "done", "finished");
-        vertx.setTimer(100, t2 -> resp.end());
+        System.out.println(Instant.now().toString() + " - Sent done event");
+        vertx.setTimer(100, t2 -> {
+          resp.end();
+          System.out.println(Instant.now().toString() + " - Response ended; connection closed (server-side)");
+        });
       });
     });
 
