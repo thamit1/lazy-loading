@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Vert.x SSE Lazy Loading Table</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; }
+    table { border-collapse: collapse; width: 70%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    td.loading { color: gray; font-style: italic; }
+    #status { margin-top: 10px; color: #555; }
+  </style>
+</head>
+<body>
+  <h2>Lazy Loading Table (Single API Call via SSE)</h2>
+  <div id="status">Connecting...</div>
+
+  <table id="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Price</th>
+        <th>Slow Column</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const evtSource = new EventSource("/stream");
+
+    evtSource.addEventListener("open", () => {
+      statusEl.textContent = "Connected to SSE.";
+    });
+
+    evtSource.addEventListener("error", (e) => {
+      statusEl.textContent = "SSE error or disconnected.";
+    });
+
+    // FAST rows arrive first
+    evtSource.addEventListener("fast", (event) => {
+      statusEl.textContent = "Received fast rows.";
+      const rows = JSON.parse(event.data);
+      const tbody = document.querySelector("#data-table tbody");
+      tbody.innerHTML = "";
+
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.id}</td>
+          <td>${row.name}</td>
+          <td>${row.price}</td>
+          <td id="slow-${row.id}" class="loading">Loading...</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+
+    // SLOW values arrive later
+    evtSource.addEventListener("slow", (event) => {
+      statusEl.textContent = "Received slow values.";
+      const slowRows = JSON.parse(event.data);
+
+      slowRows.forEach(item => {
+        const cell = document.getElementById(`slow-${item.id}`);
+        if (cell) {
+          cell.textContent = item.slow_value;
+          cell.classList.remove("loading");
+        }
+      });
+    });
+
+    // DONE event -> close connection
+    evtSource.addEventListener("done", () => {
+      statusEl.textContent = "All data received. Closing connection.";
+      evtSource.close();
+    });
+  </script>
+</body>
+</html>
